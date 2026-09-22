@@ -59,7 +59,7 @@ export function PrintTicket({
     <div className="print-sheet">
       <div className="print-brand">
         <strong>SBJ FOODS AND DRINKS</strong>
-        <span>Lagos · 8:00 — 21:30</span>
+        <span>Indy Hall, UI · 8:00 — 21:30</span>
       </div>
 
       <div className="print-type">{heading(ticket)}</div>

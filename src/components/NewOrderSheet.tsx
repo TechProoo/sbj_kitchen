@@ -500,7 +500,7 @@ export function NewOrderSheet({
                     <input
                       value={addressCity}
                       onChange={(event) => setAddressCity(event.target.value)}
-                      placeholder="Ikeja"
+                      placeholder="Agbowo"
                     />
                   </label>
                 </>
