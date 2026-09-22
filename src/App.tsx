@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AdminPanel } from './pages/AdminPanel';
+import { FeedAdmin } from './pages/FeedAdmin';
 import { BoardPage } from './pages/BoardPage';
 import { LoginPage } from './pages/LoginPage';
 
@@ -29,6 +30,16 @@ function Gate() {
         element={
           user.role && PANEL_ROLES.includes(user.role) ? (
             <AdminPanel />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
+        path="/admin/feed"
+        element={
+          user.role && PANEL_ROLES.includes(user.role) ? (
+            <FeedAdmin />
           ) : (
             <Navigate to="/" replace />
           )

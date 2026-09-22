@@ -1999,3 +1999,220 @@ button, input, select {
   .kpi-row { grid-template-columns: 1fr; }
   .panel-day b { font-size: 0.9375rem; }
 }
+
+/* ========================================================== feed composer */
+
+/*
+ * /admin/feed — posting to the customers' feed.
+ *
+ * The picker shows the picture at the shape the app will crop it to, so what
+ * the kitchen sees here is what the customer gets.
+ */
+
+.feed-admin { display: flex; flex-direction: column; gap: var(--s-3); }
+
+.compose-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+
+.compose-drop {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--s-4);
+  border: 2px dashed var(--line-strong);
+  border-radius: var(--r-lg);
+  background: var(--panel-raised);
+  color: var(--ink-muted);
+  cursor: pointer;
+  overflow: hidden;
+  font-family: inherit;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+.compose-drop:hover { border-color: var(--brand); color: var(--ink); }
+.compose-drop svg { width: 26px; height: 26px; }
+.compose-drop b { font-size: 0.875rem; }
+.compose-drop span { font-size: 0.75rem; color: var(--ink-faint); }
+
+.compose-drop.has-image {
+  border-style: solid;
+  border-color: var(--line);
+  padding: 0;
+}
+
+.compose-drop img { width: 100%; height: 100%; object-fit: cover; }
+
+/* The file input itself is never shown; the drop zone is the control. */
+.visually-hidden-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.compose-side { display: flex; flex-direction: column; gap: var(--s-3); }
+
+.compose-kinds { display: flex; gap: 6px; }
+
+.compose-kinds button {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink-muted);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.compose-kinds button svg { width: 15px; height: 15px; }
+
+.compose-kinds button.is-on {
+  background: var(--panel-high);
+  border-color: var(--ink-muted);
+  color: var(--ink);
+}
+
+/* An offer is the loud one in the app, so it is the loud one here too. */
+.compose-kinds button.promo.is-on {
+  background: color-mix(in srgb, var(--brand) 18%, transparent);
+  border-color: var(--brand);
+  color: var(--brand-strong);
+}
+
+.compose-caption {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.compose-caption textarea {
+  background: var(--panel-high);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  padding: var(--s-3);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.compose-caption textarea:focus { outline: none; border-color: var(--brand); }
+
+.compose-caption i {
+  position: absolute;
+  right: 0;
+  bottom: -16px;
+  font-style: normal;
+  font-size: 0.625rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
+
+.compose-send { margin-top: var(--s-4); padding: 13px; font-size: 0.9375rem; }
+.compose-alert { margin-top: var(--s-4); display: flex; align-items: center; gap: var(--s-2); }
+
+/* ------------------------------------------------------------ posted list */
+
+.feed-admin-list { display: flex; flex-direction: column; gap: var(--s-2); }
+
+.feed-admin-row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) auto;
+  gap: var(--s-3);
+  align-items: center;
+  padding: var(--s-2);
+  border-radius: var(--r-md);
+  background: var(--panel-raised);
+}
+
+/* Unpublished posts read as switched off rather than deleted. */
+.feed-admin-row.is-hidden { opacity: 0.5; }
+
+.feed-admin-row > img {
+  width: 72px;
+  height: 56px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+}
+
+.feed-admin-body { min-width: 0; }
+
+.feed-admin-body .pill {
+  display: inline-block;
+  margin-bottom: 4px;
+  background: var(--panel-high);
+  color: var(--ink-muted);
+}
+
+.feed-admin-body .pill.is-promo {
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
+  color: var(--brand-strong);
+}
+
+.feed-admin-body p {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.feed-admin-body small {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.6875rem;
+  color: var(--ink-faint);
+}
+
+.feed-admin-actions { display: flex; gap: 4px; }
+
+.feed-admin-actions button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.feed-admin-actions button:hover { background: var(--panel-high); color: var(--ink); }
+.feed-admin-actions button.danger:hover { color: var(--late); }
+.feed-admin-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+.feed-admin-actions svg { width: 16px; height: 16px; }
+
+@media (max-width: 720px) {
+  .compose-grid { grid-template-columns: 1fr; }
+  .compose-drop { aspect-ratio: 16 / 10; }
+  .feed-admin-row { grid-template-columns: 56px minmax(0, 1fr) auto; }
+  .feed-admin-row > img { width: 56px; height: 48px; }
+}

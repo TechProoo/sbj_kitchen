@@ -82,7 +82,7 @@ export function BoardPage() {
         <div className="topbar-brand">
           <img
             className="mark"
-            src="/brand/sbj-logo.jpg"
+            src="/brand/sbj-logo.png"
             alt=""
             width={34}
             height={34}

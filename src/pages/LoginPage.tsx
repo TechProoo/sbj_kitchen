@@ -24,7 +24,7 @@ export function LoginPage() {
       <div className="login-card">
         <img
           className="mark"
-          src="/brand/sbj-logo.jpg"
+          src="/brand/sbj-logo.png"
           alt=""
           width={56}
           height={56}

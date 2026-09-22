@@ -7,6 +7,7 @@ import {
   LuChevronRight,
   LuCircleAlert,
   LuClock,
+  LuNewspaper,
   LuReceipt,
   LuRefreshCw,
   LuTriangleAlert,
@@ -96,7 +97,7 @@ export function AdminPanel() {
         <div className="topbar-brand">
           <img
             className="mark"
-            src="/brand/sbj-logo.jpg"
+            src="/brand/sbj-logo.png"
             alt=""
             width={34}
             height={34}
@@ -108,6 +109,11 @@ export function AdminPanel() {
         </div>
 
         <div className="topbar-right">
+          <Link to="/admin/feed" className="btn btn-ghost">
+            <LuNewspaper aria-hidden="true" />
+            The feed
+          </Link>
+
           <Link to="/" className="btn btn-ghost">
             <LuArrowLeft aria-hidden="true" />
             Kitchen board

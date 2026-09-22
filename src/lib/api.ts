@@ -1,6 +1,7 @@
 import { getAccessToken } from './supabase';
 import type {
   AdminOverview,
+  FeedPost,
   Board,
   CounterOrderInput,
   MenuCategory,
@@ -57,6 +58,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+/*
+ * Multipart uploads set their own Content-Type, boundary included. Letting
+ * the JSON header through would make the server parse the body as JSON and
+ * find nothing.
+ */
+async function upload<T>(path: string, body: FormData): Promise<T> {
+  const token = await getAccessToken();
+
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    body,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (!response.ok) {
+    const parsed = (await response.json().catch(() => null)) as {
+      message?: string | string[];
+    } | null;
+    const message = Array.isArray(parsed?.message)
+      ? parsed.message.join('. ')
+      : (parsed?.message ?? `Upload failed (${response.status})`);
+    throw new ApiError(message, response.status);
+  }
+
+  return (await response.json()) as T;
+}
+
 export const api = {
   me: () => request<StaffUser>('/auth/me'),
 
@@ -65,6 +93,20 @@ export const api = {
   stats: () => request<KitchenStats>('/kitchen/stats'),
 
   soldOut: () => request<SoldOutItem[]>('/kitchen/sold-out'),
+
+  /// Every post, drafts included — the customer endpoint hides unpublished.
+  feedAll: () => request<FeedPost[]>('/feed/all'),
+
+  createFeedPost: (body: FormData) => upload<FeedPost>('/feed', body),
+
+  setFeedPublished: (id: string, isPublished: boolean) =>
+    request<FeedPost>(`/feed/${id}/published`, {
+      method: 'PATCH',
+      body: JSON.stringify({ isPublished }),
+    }),
+
+  deleteFeedPost: (id: string) =>
+    request<{ id: string }>(`/feed/${id}`, { method: 'DELETE' }),
 
   /// The owner's panel. `day` is YYYY-MM-DD; omitted, the API reports today.
   overview: (day?: string) =>

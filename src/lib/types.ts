@@ -204,3 +204,17 @@ export interface CounterOrderInput {
   paid?: boolean;
   notes?: string;
 }
+
+/* --------------------------------------------------------------- the feed */
+
+export type FeedKind = 'PROMO' | 'GIST';
+
+export interface FeedPost {
+  id: string;
+  kind: FeedKind;
+  caption: string;
+  imageUrl: string;
+  isPublished: boolean;
+  createdAt: string;
+  author: string | null;
+}
