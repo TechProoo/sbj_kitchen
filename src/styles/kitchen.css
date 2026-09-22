@@ -88,6 +88,7 @@ button, input, select {
 
 #root {
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -625,6 +626,7 @@ button, input, select {
 
 .login {
   height: 100vh;
+  height: 100dvh;
   display: grid;
   place-items: center;
   padding: var(--s-5);
@@ -693,9 +695,8 @@ button, input, select {
   .stat-strip { display: none; }
 }
 
-@media (max-width: 720px) {
-  .board { grid-template-columns: minmax(0, 1fr); }
-}
+/* The phone layout lives at the end of this file, where it can override
+   everything above it. */
 
 /* ============================================================ owner's panel */
 
@@ -706,9 +707,12 @@ button, input, select {
  */
 
 .panel {
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  /* body sets overflow:hidden for the board, so this scrolls on its own. */
+  overflow-y: auto;
 }
 
 .panel .topbar-brand small { color: var(--ink-faint); }
@@ -718,6 +722,9 @@ button, input, select {
 /* ------------------------------------------------------------- day picker */
 
 .panel-daybar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
   display: flex;
   align-items: center;
   gap: var(--s-3);
@@ -1791,3 +1798,204 @@ button, input, select {
 
 .ticket-print:hover { color: var(--ink); background: var(--panel-high); }
 .ticket-print svg { width: 15px; height: 15px; }
+
+/* ============================================================ phone layout */
+
+/*
+ * The board on a phone.
+ *
+ * This screen was drawn for a monitor over the pass, read from two metres
+ * away. On a handset the same information has to survive a 390px column, so:
+ * the top bar breaks into two rows, the four status columns become a swipe
+ * with snap points rather than four things crushed side by side, and the
+ * counter sheet goes full screen.
+ *
+ * Touch targets stay large throughout — this is used with wet hands.
+ */
+
+@media (max-width: 720px) {
+  /* ----------------------------------------------------------- top bar */
+
+  .topbar {
+    height: auto;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+    padding: var(--s-2) var(--s-3);
+  }
+
+  .topbar-brand { font-size: 0.9375rem; gap: var(--s-2); }
+  .topbar-brand .mark { width: 28px; height: 28px; }
+  .topbar-brand small { font-size: 0.5rem; }
+
+  .conn { margin-left: auto; font-size: 0.6875rem; }
+
+  /* The actions take a row of their own and scroll sideways if they must,
+     so nothing is ever pushed off the edge and out of reach. */
+  .topbar-right {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    gap: var(--s-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .topbar-right::-webkit-scrollbar { display: none; }
+  .topbar-right > * { flex-shrink: 0; }
+
+  .topbar .btn {
+    padding: 9px 13px;
+    font-size: 0.8125rem;
+  }
+
+  /* Who is signed in matters at the pass, not on a phone in a pocket. */
+  .who { display: none; }
+
+  /* ------------------------------------------------------------- board */
+
+  /*
+   * One status at a time, swiped between. Stacking all four vertically
+   * would bury Ready under thirty tickets of New.
+   */
+  .board {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 86%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .board::-webkit-scrollbar { display: none; }
+
+  .column { scroll-snap-align: start; }
+
+  .column-body { padding: var(--s-2); gap: var(--s-2); }
+
+  /* ------------------------------------------------------------ ticket */
+
+  .ticket-head { padding: var(--s-3); }
+  .ticket-items { padding: 0 var(--s-3); }
+  .ticket-foot { padding: var(--s-3); flex-wrap: wrap; gap: var(--s-2); }
+  .ticket-meta { width: 100%; }
+  .btn-bump { padding: 13px; }
+
+  /* ------------------------------------------------------------ sheets */
+
+  .sheet-backdrop { padding: var(--s-2); }
+  .sheet-backdrop.inner { padding: var(--s-3); }
+  .sheet { max-height: 92dvh; }
+  .sheet-head { padding: var(--s-3) var(--s-4); }
+  .sheet-body { padding: var(--s-4); }
+
+  /* -------------------------------------------------- counter ordering */
+
+  .sheet-order {
+    width: 100%;
+    max-height: 96dvh;
+  }
+
+  .sheet-head p { font-size: 0.75rem; }
+
+  /*
+   * One scroll for the whole sheet rather than two racing each other. The
+   * menu keeps a capped height so the ticket below it is always a short
+   * scroll away, never the far side of forty dishes.
+   */
+  .order-split {
+    display: block;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .order-menu {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+    padding: var(--s-3);
+  }
+
+  .order-items {
+    max-height: 36vh;
+    gap: 5px;
+  }
+
+  .order-item { padding: 10px 11px; }
+
+  .order-ticket {
+    overflow: visible;
+    padding: var(--s-3);
+  }
+
+  .order-fields { grid-template-columns: 1fr; }
+  .order-field-wide { grid-column: auto; }
+
+  .order-pay { flex-direction: column; align-items: stretch; }
+  .order-methods { width: 100%; }
+  .order-paid { justify-content: center; padding: var(--s-2) 0; }
+
+  .order-line { gap: var(--s-2); padding: 8px 9px; }
+  .order-line-main b { font-size: 0.8125rem; }
+
+  /* Always reachable, whatever the ticket length. */
+  .order-send {
+    position: sticky;
+    bottom: 0;
+    margin-top: var(--s-2);
+  }
+
+  .order-placed { padding: var(--s-5) var(--s-4); }
+  .order-placed-number { font-size: 2rem; }
+  .order-placed-actions { width: 100%; }
+  .order-placed-actions .btn { flex: 1; justify-content: center; }
+
+  /* -------------------------------------------------------- the panel */
+
+  .panel .topbar { padding: var(--s-2) var(--s-3); }
+
+  .panel-daybar {
+    gap: var(--s-2);
+    padding: var(--s-3);
+  }
+
+  .panel-day b { font-size: 1rem; }
+  .panel-date-input { flex: 1; min-width: 0; }
+  .panel-body { padding: var(--s-3); }
+
+  .kpi-row {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-2);
+  }
+
+  /* The day's takings get the full width; the rest pair up beneath. */
+  .kpi-lead { grid-column: 1 / -1; }
+
+  .kpi { padding: var(--s-3); }
+  .kpi b { font-size: 1.375rem; }
+  .kpi-lead b { font-size: 2rem; }
+  .kpi small { font-size: 0.6875rem; }
+
+  .panel-grid { gap: var(--s-2); }
+  .panel .card { padding: var(--s-3); }
+
+  .bars { height: 118px; gap: 2px; }
+  .bar { padding-bottom: 14px; }
+
+  .rows li { grid-template-columns: minmax(0, 1fr) 44px auto; gap: var(--s-2); }
+
+  /* --------------------------------------------------------- sign in */
+
+  .login { padding: var(--s-4); }
+  .login-card { padding: var(--s-5); }
+}
+
+/* A narrow handset: give the swipe more of the screen and drop the last of
+   the chrome that is not load-bearing. */
+@media (max-width: 420px) {
+  .board { grid-auto-columns: 92%; }
+  .topbar-brand small { display: none; }
+  .kpi-row { grid-template-columns: 1fr; }
+  .panel-day b { font-size: 0.9375rem; }
+}
