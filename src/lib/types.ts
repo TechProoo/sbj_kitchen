@@ -58,7 +58,16 @@ export interface Ticket {
   startedAt: string | null;
   readyAt: string | null;
   items: TicketItem[];
-  address: { line1: string; city: string; landmark: string | null } | null;
+  address: {
+    line1: string;
+    city: string;
+    landmark: string | null;
+    /// Present when the customer shared a pin instead of, or as well as,
+    /// typing an address. Decimal columns reach the browser as strings.
+    latitude: string | null;
+    longitude: string | null;
+    accuracyMeters: number | null;
+  } | null;
   claimedBy: { id: string; fullName: string } | null;
 }
 

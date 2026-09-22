@@ -77,6 +77,16 @@ export function PrintTicket({
           {ticket.address?.line1}
           {ticket.address?.city ? `, ${ticket.address.city}` : ''}
           {ticket.address?.landmark ? ` (${ticket.address.landmark})` : ''}
+          {/* Printed so a rider working off paper still has the pin to type
+              into their phone. */}
+          {ticket.address?.latitude && ticket.address?.longitude && (
+            <>
+              <br />
+              <span className="print-pin">
+                Pin {ticket.address.latitude}, {ticket.address.longitude}
+              </span>
+            </>
+          )}
         </p>
       )}
 

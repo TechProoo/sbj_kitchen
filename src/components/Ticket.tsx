@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
-import { LuCheck, LuPrinter, LuTriangleAlert, LuUtensils } from 'react-icons/lu';
+import {
+  LuCheck,
+  LuMapPin,
+  LuNavigation,
+  LuPrinter,
+  LuTriangleAlert,
+  LuUtensils,
+} from 'react-icons/lu';
 import {
   TYPE_ICON,
   TYPE_LABEL,
@@ -97,6 +104,41 @@ export function Ticket({
           <span>{formatClock(ticket.placedAt)}</span>
         </div>
       </div>
+
+      {ticket.type === 'DELIVERY' && ticket.address && (
+        <div className="ticket-address">
+          <LuMapPin aria-hidden="true" />
+          <span className="ticket-address-text">
+            {ticket.address.line1}
+            {ticket.address.city ? `, ${ticket.address.city}` : ''}
+            {ticket.address.landmark && (
+              <em>{ticket.address.landmark}</em>
+            )}
+            {ticket.address.accuracyMeters !== null &&
+              ticket.address.accuracyMeters > 500 && (
+                <em className="ticket-address-warn">
+                  Pin only accurate to ~{ticket.address.accuracyMeters}m — call
+                  to confirm
+                </em>
+              )}
+          </span>
+
+          {/* A tap hands the rider turn-by-turn directions. No key, no map
+              library — the pin is the whole of what they need. */}
+          {ticket.address.latitude && ticket.address.longitude && (
+            <a
+              className="ticket-map"
+              href={`https://www.google.com/maps/dir/?api=1&destination=${ticket.address.latitude},${ticket.address.longitude}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Open directions to this pin"
+            >
+              <LuNavigation aria-hidden="true" />
+              Directions
+            </a>
+          )}
+        </div>
+      )}
 
       <div className="ticket-items">
         {ticket.items.map((item) => {
