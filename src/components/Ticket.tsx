@@ -150,7 +150,6 @@ export function Ticket({
               className="ticket-item"
               data-done={done}
               onClick={() => onToggleItem(ticket, item.id, !done)}
-              disabled={busy}
             >
               <span className="qty">{item.quantity}×</span>
               <span className="body">

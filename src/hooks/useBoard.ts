@@ -16,6 +16,7 @@ export interface BoardState {
   newIds: Set<string>;
   refresh: () => Promise<void>;
   applyTicket: (ticket: Ticket) => void;
+  patchTicket: (id: string, update: (ticket: Ticket) => Ticket) => void;
 }
 
 /// Owns the board's live state: one REST fetch for the initial paint, then
@@ -42,6 +43,18 @@ export function useBoard(enabled: boolean): BoardState {
       );
     });
   }, []);
+
+  /// An in-place edit of one ticket, computed from whatever is on the board
+  /// right now. Optimistic checkbox toggles use this so two quick ticks on the
+  /// same order build on each other instead of clobbering from a stale copy.
+  const patchTicket = useCallback(
+    (id: string, update: (ticket: Ticket) => Ticket) => {
+      setTickets((current) =>
+        current.map((entry) => (entry.id === id ? update(entry) : entry)),
+      );
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -154,5 +167,6 @@ export function useBoard(enabled: boolean): BoardState {
     newIds,
     refresh,
     applyTicket,
+    patchTicket,
   };
 }

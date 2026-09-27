@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { useBoard } from '../hooks/useBoard';
 import { api, ApiError } from '../lib/api';
 import { formatMoney } from '../lib/format';
-import type { OrderStatus, Ticket } from '../lib/types';
+import type { OrderItemStatus, OrderStatus, Ticket } from '../lib/types';
 
 const COLUMNS: { status: keyof ReturnType<typeof useBoard>['columns']; label: string }[] =
   [
@@ -64,10 +64,29 @@ export function BoardPage() {
   const advance = (ticket: Ticket, next: OrderStatus) =>
     run(ticket.id, () => api.setStatus(ticket.id, next));
 
-  const toggleItem = (ticket: Ticket, itemId: string, done: boolean) =>
-    run(ticket.id, () =>
-      api.setItemStatus(ticket.id, itemId, done ? 'READY' : 'QUEUED'),
-    );
+  // Ticking an item is optimistic and deliberately stays off the card's busy
+  // lock: the check flips instantly and the Accept / advance button never waits
+  // on the round-trip. The backend changes only this one item, so there is
+  // nothing else to reconcile on success — a failure just refreshes the board
+  // back to the truth.
+  const toggleItem = async (ticket: Ticket, itemId: string, done: boolean) => {
+    const status: OrderItemStatus = done ? 'READY' : 'QUEUED';
+    board.patchTicket(ticket.id, (current) => ({
+      ...current,
+      items: current.items.map((item) =>
+        item.id === itemId ? { ...item, status } : item,
+      ),
+    }));
+    setActionError(null);
+    try {
+      await api.setItemStatus(ticket.id, itemId, status);
+    } catch (error) {
+      setActionError(
+        error instanceof ApiError ? error.message : 'That did not go through.',
+      );
+      void board.refresh();
+    }
+  };
 
   const confirmCancel = async (reason: string) => {
     if (!cancelling) return;
