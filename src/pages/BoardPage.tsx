@@ -1,15 +1,33 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { LuChartColumn, LuPlus } from 'react-icons/lu';
+import {
+  LuChartColumn,
+  LuCloudOff,
+  LuCloudUpload,
+  LuPlus,
+  LuRefreshCw,
+} from 'react-icons/lu';
 import { Ticket as TicketCard } from '../components/Ticket';
 import { NewOrderSheet } from '../components/NewOrderSheet';
 import { PrintTicket } from '../components/PrintTicket';
 import { SoldOutSheet } from '../components/SoldOutSheet';
 import { CancelSheet } from '../components/CancelSheet';
+import { SyncSheet } from '../components/SyncSheet';
 import { useAuth } from '../context/AuthContext';
 import { useBoard } from '../hooks/useBoard';
 import { api, ApiError } from '../lib/api';
+import { isOnline, useOnline } from '../lib/connectivity';
 import { formatMoney } from '../lib/format';
+import {
+  advanceLocal,
+  drainOutbox,
+  isLocalTicket,
+  queueCancel,
+  queueItem,
+  queueStatus,
+  toggleLocalItem,
+  useOutbox,
+} from '../lib/outbox';
 import type { OrderItemStatus, OrderStatus, Ticket } from '../lib/types';
 
 const COLUMNS: { status: keyof ReturnType<typeof useBoard>['columns']; label: string }[] =
@@ -29,6 +47,27 @@ export function BoardPage() {
   const [showSoldOut, setShowSoldOut] = useState(false);
   const [takingOrder, setTakingOrder] = useState(false);
   const [printing, setPrinting] = useState<Ticket | null>(null);
+  const [showSync, setShowSync] = useState(false);
+
+  const online = useOnline();
+  const outbox = useOutbox();
+  const waiting = outbox.ops.length;
+  const refused = outbox.ops.filter(
+    (op) => op.kind === 'create' && op.failed,
+  ).length;
+
+  /// "All caught up" stays up for a few seconds after a sync, then clears.
+  const [justSynced, setJustSynced] = useState<number | null>(null);
+  useEffect(() => {
+    if (!outbox.lastSync) return;
+    const sent = outbox.lastSync.orders;
+    const show = setTimeout(() => setJustSynced(sent), 0);
+    const hide = setTimeout(() => setJustSynced(null), 8000);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [outbox.lastSync]);
 
   const setBusy = useCallback((id: string, busy: boolean) => {
     setBusyIds((current) => {
@@ -41,14 +80,31 @@ export function BoardPage() {
 
   /// Every mutation goes through here so the card locks while the request is
   /// in flight — double-bumping a ticket in a busy kitchen is easy to do.
+  ///
+  /// With no connection the change is saved to the outbox instead and the board
+  /// shows it straight away; `offline` is what gets saved.
   const run = useCallback(
-    async (id: string, action: () => Promise<Ticket | unknown>) => {
-      setBusy(id, true);
+    async (
+      id: string,
+      action: () => Promise<Ticket | unknown>,
+      offline?: () => void,
+    ) => {
       setActionError(null);
+
+      if (offline && !isOnline()) {
+        offline();
+        return;
+      }
+
+      setBusy(id, true);
       try {
         const updated = (await action()) as Ticket;
         if (updated?.id) board.applyTicket(updated);
       } catch (error) {
+        if (offline && error instanceof ApiError && error.status === 0) {
+          offline();
+          return;
+        }
         setActionError(
           error instanceof ApiError ? error.message : 'That did not go through.',
         );
@@ -61,8 +117,19 @@ export function BoardPage() {
     [board, setBusy],
   );
 
-  const advance = (ticket: Ticket, next: OrderStatus) =>
-    run(ticket.id, () => api.setStatus(ticket.id, next));
+  const advance = (ticket: Ticket, next: OrderStatus) => {
+    // A ticket taken offline has no server order yet; it moves on this device
+    // and the steps are replayed once it is uploaded.
+    if (isLocalTicket(ticket)) {
+      advanceLocal(ticket.id, next);
+      return;
+    }
+    void run(
+      ticket.id,
+      () => api.setStatus(ticket.id, next),
+      () => queueStatus(ticket.id, next),
+    );
+  };
 
   // Ticking an item is optimistic and deliberately stays off the card's busy
   // lock: the check flips instantly and the Accept / advance button never waits
@@ -71,16 +138,30 @@ export function BoardPage() {
   // back to the truth.
   const toggleItem = async (ticket: Ticket, itemId: string, done: boolean) => {
     const status: OrderItemStatus = done ? 'READY' : 'QUEUED';
+    setActionError(null);
+
+    if (isLocalTicket(ticket)) {
+      toggleLocalItem(ticket.id, itemId, status);
+      return;
+    }
+    if (!isOnline()) {
+      queueItem(ticket.id, itemId, status);
+      return;
+    }
+
     board.patchTicket(ticket.id, (current) => ({
       ...current,
       items: current.items.map((item) =>
         item.id === itemId ? { ...item, status } : item,
       ),
     }));
-    setActionError(null);
     try {
       await api.setItemStatus(ticket.id, itemId, status);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 0) {
+        queueItem(ticket.id, itemId, status);
+        return;
+      }
       setActionError(
         error instanceof ApiError ? error.message : 'That did not go through.',
       );
@@ -92,7 +173,11 @@ export function BoardPage() {
     if (!cancelling) return;
     const ticket = cancelling;
     setCancelling(null);
-    await run(ticket.id, () => api.cancel(ticket.id, reason));
+    await run(
+      ticket.id,
+      () => api.cancel(ticket.id, reason),
+      () => queueCancel(ticket.id, reason),
+    );
   };
 
   return (
@@ -114,16 +199,17 @@ export function BoardPage() {
 
         {board.stats && (
           <div className="stat-strip">
+            {/* Counted from the tickets on screen, so they stay true offline. */}
             <div className="stat">
-              <b>{board.stats.live.pending + board.stats.live.confirmed}</b>
+              <b>{board.columns.PENDING.length + board.columns.CONFIRMED.length}</b>
               <span>Waiting</span>
             </div>
             <div className="stat">
-              <b>{board.stats.live.preparing}</b>
+              <b>{board.columns.PREPARING.length}</b>
               <span>Cooking</span>
             </div>
             <div className="stat">
-              <b>{board.stats.live.ready}</b>
+              <b>{board.columns.READY.length}</b>
               <span>Ready</span>
             </div>
             <div className="stat">
@@ -143,7 +229,7 @@ export function BoardPage() {
 
         <div className="topbar-right">
           <span className={`conn${board.connected ? '' : ' offline'}`}>
-            {board.connected ? 'Live' : 'Reconnecting'}
+            {!online ? 'Offline' : board.connected ? 'Live' : 'Reconnecting'}
           </span>
 
           <button
@@ -159,6 +245,8 @@ export function BoardPage() {
             type="button"
             className="btn btn-ghost"
             onClick={() => setShowSoldOut(true)}
+            disabled={!online}
+            title={online ? undefined : 'Needs a connection'}
           >
             Sold out
           </button>
@@ -181,6 +269,60 @@ export function BoardPage() {
           </button>
         </div>
       </header>
+
+      {(!online || waiting > 0 || justSynced) && (
+        <div
+          className={`netbar${!online ? ' is-offline' : ''}${refused > 0 ? ' is-refused' : ''}`}
+          role="status"
+        >
+          {!online ? (
+            <LuCloudOff aria-hidden="true" />
+          ) : outbox.syncing ? (
+            <LuRefreshCw aria-hidden="true" className="spin" />
+          ) : (
+            <LuCloudUpload aria-hidden="true" />
+          )}
+
+          <p>
+            {!online &&
+              (waiting > 0
+                ? `Offline. ${waiting} ${waiting === 1 ? 'change is' : 'changes are'} saved on this device and will send by themselves when the internet is back.`
+                : 'Offline. You can keep taking and cooking orders. They are saved on this device and sent to the office when the internet is back.')}
+            {online &&
+              refused > 0 &&
+              `${refused} offline ${refused === 1 ? 'order was' : 'orders were'} refused by the server. Open the list to decide what to do.`}
+            {online &&
+              refused === 0 &&
+              waiting > 0 &&
+              (outbox.syncing
+                ? `Sending ${waiting} ${waiting === 1 ? 'change' : 'changes'} to the office…`
+                : `${waiting} ${waiting === 1 ? 'change is' : 'changes are'} waiting to be sent.`)}
+            {online &&
+              waiting === 0 &&
+              justSynced &&
+              `All caught up. ${justSynced} offline ${justSynced === 1 ? 'order' : 'orders'} sent to the office.`}
+          </p>
+
+          {online && waiting > 0 && !outbox.syncing && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => void drainOutbox()}
+            >
+              Send now
+            </button>
+          )}
+          {waiting > 0 && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => setShowSync(true)}
+            >
+              View
+            </button>
+          )}
+        </div>
+      )}
 
       {(board.error || actionError) && (
         <div className="alert" style={{ margin: '12px 24px 0' }}>
@@ -247,6 +389,8 @@ export function BoardPage() {
           }}
         />
       )}
+
+      {showSync && <SyncSheet onClose={() => setShowSync(false)} />}
 
       {printing && (
         <PrintTicket ticket={printing} onDone={() => setPrinting(null)} />

@@ -1,4 +1,7 @@
-import { getAccessToken } from './supabase';
+import { API_URL } from './config';
+import { setReachable } from './connectivity';
+import { readJson, writeJson } from './storage';
+import { getAccessToken, supabase } from './supabase';
 import type {
   AdminOverview,
   FeedPost,
@@ -16,7 +19,9 @@ import type {
   Ticket,
 } from './types';
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000/api';
+/// A request that has not answered by now is as good as offline: waiting
+/// longer just freezes a button in a kitchen that is already busy.
+const REQUEST_TIMEOUT_MS = 10_000;
 
 export class ApiError extends Error {
   readonly status: number;
@@ -30,13 +35,21 @@ export class ApiError extends Error {
 
 /// Every kitchen call is authenticated, so the token is attached here rather
 /// than at each call site. Supabase refreshes it in the background.
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  retried = false,
+): Promise<T> {
   const token = await getAccessToken();
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -44,7 +57,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
+    setReachable(false);
     throw new ApiError('Cannot reach the API server.', 0);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  // Any answer at all, even an error, means the server is there.
+  setReachable(true);
+
+  // A token that expired while the screen was offline: refresh once, retry once.
+  if (response.status === 401 && !retried) {
+    const { data } = await supabase.auth.refreshSession().catch(() => ({
+      data: { session: null },
+    }));
+    if (data.session) return request<T>(path, init, true);
   }
 
   if (!response.ok) {
@@ -61,6 +88,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+/// Read-through cache for data the counter needs when the line is down. A live
+/// answer refreshes the copy; a failure to connect falls back to it.
+async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
+  try {
+    const fresh = await load();
+    writeJson(key, fresh);
+    return fresh;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 0) {
+      const saved = readJson<T | null>(key, null);
+      if (saved !== null) return saved;
+    }
+    throw error;
+  }
+}
+
 /*
  * Multipart uploads set their own Content-Type, boundary included. Letting
  * the JSON header through would make the server parse the body as JSON and
@@ -69,11 +112,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 async function upload<T>(path: string, body: FormData): Promise<T> {
   const token = await getAccessToken();
 
-  const response = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    body,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      body,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    setReachable(false);
+    throw new ApiError('Cannot reach the API server.', 0);
+  }
+  setReachable(true);
 
   if (!response.ok) {
     const parsed = (await response.json().catch(() => null)) as {
@@ -112,13 +162,29 @@ export const api = {
     request<{ id: string }>(`/feed/${id}`, { method: 'DELETE' }),
 
   /// The owner's panel. `day` is YYYY-MM-DD; omitted, the API reports today.
-  overview: (day?: string) =>
-    request<AdminOverview>(`/admin/overview${day ? `?day=${day}` : ''}`),
+  /// Offline, the last copy of that day is shown, marked `fromCache`.
+  overview: async (day?: string): Promise<AdminOverview> => {
+    const key = `sbj.kitchen.overview.${day ?? 'today'}`;
+    try {
+      const report = await request<AdminOverview>(
+        `/admin/overview${day ? `?day=${day}` : ''}`,
+      );
+      writeJson(key, report);
+      return report;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 0) {
+        const saved = readJson<AdminOverview | null>(key, null);
+        if (saved) return { ...saved, fromCache: true };
+      }
+      throw error;
+    }
+  },
 
   order: (id: string) => request<Ticket>(`/orders/${id}`),
 
   /// The whole menu, for typing an order in at the counter.
-  menu: () => request<MenuCategory[]>('/menu'),
+  menu: () =>
+    cached('sbj.kitchen.menu', () => request<MenuCategory[]>('/menu')),
 
   /// A walk-in or phoned-through order. Lands on the board already accepted.
   createManual: (input: CounterOrderInput) =>
@@ -131,6 +197,19 @@ export const api = {
     request<Ticket>(`/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify(note ? { status, note } : { status }),
+    }),
+
+  /// Taking payment on a ticket that went out unpaid.
+  setPayment: (
+    id: string,
+    paymentStatus: 'PAID' | 'UNPAID',
+    paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER',
+  ) =>
+    request<Ticket>(`/orders/${id}/payment`, {
+      method: 'PATCH',
+      body: JSON.stringify(
+        paymentMethod ? { paymentStatus, paymentMethod } : { paymentStatus },
+      ),
     }),
 
   claim: (id: string) =>

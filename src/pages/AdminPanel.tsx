@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import {
-  LuArrowLeft,
   LuBanknote,
   LuChevronLeft,
   LuChevronRight,
   LuCircleAlert,
   LuClock,
-  LuNewspaper,
+  LuCloudOff,
+  LuCloudUpload,
   LuReceipt,
   LuRefreshCw,
   LuTriangleAlert,
   LuUsers,
-  LuUtensils,
 } from 'react-icons/lu';
+import { AdminTabs } from '../components/AdminTabs';
+import { OrderLedger } from '../components/OrderLedger';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
+import { useOnline } from '../lib/connectivity';
+import { isUnpaid, type LedgerFilter } from '../lib/ledger';
 import { formatClock, formatMoney, TYPE_LABEL } from '../lib/format';
 import type { AdminOverview } from '../lib/types';
 
@@ -58,6 +60,8 @@ export function AdminPanel() {
   const [day, setDay] = useState(today());
   const [data, setData] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<LedgerFilter>('all');
+  const online = useOnline();
 
   /// Nothing is set synchronously here: the report only lands once the request
   /// resolves, so switching day never blanks the screen mid-render.
@@ -91,6 +95,15 @@ export function AdminPanel() {
   const loading = !error && (!data || data.day !== day);
   const sales = data?.sales;
   const isFuture = day >= today();
+  const unpaid = data ? data.recent.filter(isUnpaid) : [];
+  const unpaidValue = unpaid.reduce((sum, order) => sum + Number(order.total), 0);
+  const yesterday = shiftDay(today(), -1);
+
+  /// Jumping to a day also clears any filter left over from the last one.
+  const openDay = (target: string) => {
+    setDay(target);
+    setFilter('all');
+  };
 
   return (
     <div className="panel">
@@ -110,21 +123,6 @@ export function AdminPanel() {
         </div>
 
         <div className="topbar-right">
-          <Link to="/admin/menu" className="btn btn-ghost">
-            <LuUtensils aria-hidden="true" />
-            Menu
-          </Link>
-
-          <Link to="/admin/feed" className="btn btn-ghost">
-            <LuNewspaper aria-hidden="true" />
-            The feed
-          </Link>
-
-          <Link to="/" className="btn btn-ghost">
-            <LuArrowLeft aria-hidden="true" />
-            Kitchen board
-          </Link>
-
           <div className="who">
             <b>{user?.fullName ?? user?.email}</b>
             <span>{user?.role}</span>
@@ -132,13 +130,15 @@ export function AdminPanel() {
         </div>
       </header>
 
+      <AdminTabs />
+
       {/* ------------------------------------------------------- day picker */}
 
       <div className="panel-daybar">
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={() => setDay(shiftDay(day, -1))}
+          onClick={() => openDay(shiftDay(day, -1))}
           aria-label="Previous day"
         >
           <LuChevronLeft aria-hidden="true" />
@@ -155,7 +155,7 @@ export function AdminPanel() {
         <button
           type="button"
           className="btn btn-ghost"
-          onClick={() => setDay(shiftDay(day, 1))}
+          onClick={() => openDay(shiftDay(day, 1))}
           disabled={isFuture}
           aria-label="Next day"
         >
@@ -167,13 +167,19 @@ export function AdminPanel() {
           className="panel-date-input"
           value={day}
           max={today()}
-          onChange={(event) => setDay(event.target.value || today())}
+          onChange={(event) => openDay(event.target.value || today())}
           aria-label="Pick a day"
         />
 
-        {!isFuture && day !== today() && (
-          <button type="button" className="btn btn-ghost" onClick={() => setDay(today())}>
+        {day !== today() && (
+          <button type="button" className="btn btn-ghost" onClick={() => openDay(today())}>
             Today
+          </button>
+        )}
+
+        {day !== yesterday && (
+          <button type="button" className="btn btn-ghost" onClick={() => openDay(yesterday)}>
+            Yesterday
           </button>
         )}
 
@@ -182,10 +188,19 @@ export function AdminPanel() {
           className="btn btn-ghost panel-refresh"
           onClick={() => void refresh(day)}
           aria-label="Refresh"
+          title={online ? 'Refresh' : 'No internet'}
         >
           <LuRefreshCw aria-hidden="true" />
         </button>
       </div>
+
+      {data?.fromCache && (
+        <div className="alert alert-info panel-alert">
+          <LuCloudOff aria-hidden="true" />
+          No internet. These are the figures saved at {formatClock(data.asOf)}.
+          They update by themselves once the connection is back.
+        </div>
+      )}
 
       {error && (
         <div className="alert panel-alert">
@@ -198,6 +213,44 @@ export function AdminPanel() {
 
       {data && sales && data.day === day && (
         <div className="panel-body">
+          {/* ------------------------------------------------- needs a look */}
+
+          {(unpaid.length > 0 || data.offline.orders > 0) && (
+            <section className="attention" aria-label="Needs attention">
+              {unpaid.length > 0 && (
+                <button
+                  type="button"
+                  className="attention-item is-warn"
+                  onClick={() => setFilter('unpaid')}
+                >
+                  <LuBanknote aria-hidden="true" />
+                  <span>
+                    <b>
+                      {unpaid.length} unpaid {unpaid.length === 1 ? 'order' : 'orders'}
+                    </b>
+                    {formatMoney(unpaidValue)} not yet collected
+                  </span>
+                </button>
+              )}
+
+              {data.offline.orders > 0 && (
+                <button
+                  type="button"
+                  className="attention-item"
+                  onClick={() => setFilter('offline')}
+                >
+                  <LuCloudUpload aria-hidden="true" />
+                  <span>
+                    <b>
+                      {data.offline.orders} taken offline
+                    </b>
+                    {formatMoney(data.offline.revenue)} sent up after the internet dropped
+                  </span>
+                </button>
+              )}
+            </section>
+          )}
+
           {/* ------------------------------------------------- headline row */}
 
           <section className="kpi-row">
@@ -298,12 +351,17 @@ export function AdminPanel() {
                   const top = peak(data.days.map((d) => Number(d.revenue)));
                   return (
                     <li key={entry.day}>
-                      <span className="rows-name">
+                      <button
+                        type="button"
+                        className={`rows-name rows-link${entry.day === day ? ' is-picked' : ''}`}
+                        onClick={() => openDay(entry.day)}
+                        title="Open this day"
+                      >
                         {new Date(`${entry.day}T00:00:00`).toLocaleDateString(
                           'en-NG',
                           { weekday: 'short', day: 'numeric' },
                         )}
-                      </span>
+                      </button>
                       <span className="rows-track">
                         <span
                           className="rows-fill"
@@ -431,57 +489,13 @@ export function AdminPanel() {
                 <LuReceipt aria-hidden="true" /> Orders on this day
               </h2>
 
-              {data.recent.length === 0 ? (
-                <p className="muted">No orders on this day.</p>
-              ) : (
-                <div className="table-scroll">
-                  <table className="ledger">
-                    <thead>
-                      <tr>
-                        <th>Ticket</th>
-                        <th>Placed</th>
-                        <th>Customer</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Payment</th>
-                        <th>Taken by</th>
-                        <th className="num">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.recent.map((order) => (
-                        <tr key={order.id}>
-                          <th>{order.orderNumber}</th>
-                          <td>{formatClock(order.placedAt)}</td>
-                          <td>{order.customerName}</td>
-                          <td>{TYPE_LABEL[order.type] ?? order.type}</td>
-                          <td>
-                            <span className={`pill status-${order.status.toLowerCase()}`}>
-                              {order.status}
-                            </span>
-                          </td>
-                          <td>
-                            <span
-                              className={`pill ${
-                                order.paymentStatus === 'PAID' ? 'is-paid' : 'is-unpaid'
-                              }`}
-                            >
-                              {order.paymentStatus}
-                              {order.paymentMethod ? ` · ${order.paymentMethod}` : ''}
-                            </span>
-                          </td>
-                          <td>{order.claimedBy ?? '—'}</td>
-                          <td className="num">{formatMoney(order.total)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-
-              {data.recent.length >= 25 && (
-                <p className="muted">Showing the 25 most recent tickets of this day.</p>
-              )}
+              <OrderLedger
+                day={day}
+                orders={data.recent}
+                filter={filter}
+                onFilter={setFilter}
+                onChanged={() => void refresh(day)}
+              />
             </section>
           </div>
         </div>

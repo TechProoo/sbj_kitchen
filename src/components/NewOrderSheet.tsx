@@ -13,7 +13,10 @@ import {
 } from 'react-icons/lu';
 import { PrintTicket } from './PrintTicket';
 import { api, ApiError } from '../lib/api';
+import { isOnline } from '../lib/connectivity';
 import { formatMoney } from '../lib/format';
+import { uuid } from '../lib/ids';
+import { nextOfflineRef, queueOrder, rememberOwn } from '../lib/outbox';
 import type {
   CounterOrderInput,
   MenuCategory,
@@ -229,12 +232,71 @@ export function NewOrderSheet({
         ? 'A delivery needs a street and a city'
         : null;
 
+  /// The ticket the board shows for an order that has not reached the server.
+  /// Prices come from the menu on this screen; the server recalculates them
+  /// when the order is uploaded, and its figures are the ones that count.
+  const localTicket = (
+    clientRef: string,
+    offlineRef: string,
+    placedAt: string,
+  ): Ticket => ({
+    id: `local-${clientRef}`,
+    orderNumber: offlineRef,
+    status: 'CONFIRMED',
+    type,
+    customerName: customerName.trim() || 'Walk-in',
+    customerPhone: customerPhone.trim(),
+    tableNumber: type === 'DINE_IN' && tableNumber.trim() ? tableNumber.trim() : null,
+    notes: notes.trim() || null,
+    subtotal: subtotal.toFixed(2),
+    deliveryFee: deliveryFee.toFixed(2),
+    total: total.toFixed(2),
+    paymentStatus: paid ? 'PAID' : 'UNPAID',
+    paymentMethod: method,
+    channel: 'WALK_IN',
+    placedAt,
+    confirmedAt: placedAt,
+    startedAt: null,
+    readyAt: null,
+    items: lines.map((line, index) => ({
+      id: `${clientRef}-${index}`,
+      nameSnapshot: line.item.name,
+      quantity: line.quantity,
+      unitPrice: (priceOf(line) / line.quantity).toFixed(2),
+      lineTotal: priceOf(line).toFixed(2),
+      notes: null,
+      status: 'QUEUED',
+      modifiers: line.modifiers.map((m) => ({ nameSnapshot: m.name })),
+    })),
+    address:
+      type === 'DELIVERY'
+        ? {
+            line1: addressLine.trim(),
+            city: addressCity.trim(),
+            landmark: null,
+            latitude: null,
+            longitude: null,
+            accuracyMeters: null,
+          }
+        : null,
+    claimedBy: null,
+    clientRef,
+    offlineRef,
+    pendingSync: true,
+  });
+
   const send = async () => {
     if (missing) return;
     setSubmitting(true);
     setError(null);
 
+    // Minted before the first attempt, so if the answer is lost on the way
+    // back the retry can never make a second order.
+    const clientRef = uuid();
+    rememberOwn(clientRef);
+
     const payload: CounterOrderInput = {
+      clientRef,
       type,
       channel: 'WALK_IN',
       paymentMethod: method,
@@ -253,6 +315,22 @@ export function NewOrderSheet({
         : {}),
     };
 
+    const takeOffline = () => {
+      const offlineRef = nextOfflineRef();
+      const placedAt = new Date().toISOString();
+      const ticket = localTicket(clientRef, offlineRef, placedAt);
+      queueOrder({ ...payload, offlineRef, placedAt }, ticket);
+      setPlaced(ticket);
+      setSubmitting(false);
+      // The slip is the customer's only link to the chef, online or not.
+      if (ticket.type !== 'DELIVERY') setPrinting(true);
+    };
+
+    if (!isOnline()) {
+      takeOffline();
+      return;
+    }
+
     try {
       const ticket = await api.createManual(payload);
       onPlaced(ticket);
@@ -263,6 +341,10 @@ export function NewOrderSheet({
       // so it only prints if someone asks.
       if (ticket.type !== 'DELIVERY') setPrinting(true);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 0) {
+        takeOffline();
+        return;
+      }
       setError(
         err instanceof ApiError ? err.message : 'That did not go through.',
       );
@@ -313,7 +395,9 @@ export function NewOrderSheet({
             </span>
 
             <p className="order-placed-label">
-              On the board, accepted
+              {placed.pendingSync
+                ? 'Saved on this device, accepted'
+                : 'On the board, accepted'}
               {placed.paymentStatus === 'PAID' ? ' and paid' : ' — not yet paid'}
             </p>
 
@@ -323,6 +407,14 @@ export function NewOrderSheet({
               {formatMoney(placed.total)}
               {placed.paymentMethod ? ` · ${placed.paymentMethod}` : ''}
             </p>
+
+            {placed.pendingSync && (
+              <p className="order-placed-offline">
+                No internet right now. It is on the board and the office gets it
+                the moment the connection returns. The slip number starts with
+                OFF; the office number is added after.
+              </p>
+            )}
 
             <p className="order-placed-hint">
               {placed.type === 'DELIVERY'

@@ -7,6 +7,7 @@ import {
   LuTrash2,
   LuTriangleAlert,
 } from 'react-icons/lu';
+import { AdminTabs } from '../components/AdminTabs';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import { formatMoney } from '../lib/format';
@@ -246,6 +247,8 @@ export function MenuAdmin() {
           </div>
         </div>
       </header>
+
+      <AdminTabs />
 
       <div className="panel-body">
         {error && !editing && (

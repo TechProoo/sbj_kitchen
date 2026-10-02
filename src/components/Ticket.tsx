@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   LuCheck,
+  LuCloudOff,
   LuMapPin,
   LuNavigation,
   LuPrinter,
@@ -89,7 +90,25 @@ export function Ticket({
     >
       <div className="ticket-head">
         <div>
-          <div className="ticket-number">{ticket.orderNumber}</div>
+          <div className="ticket-number">
+            {ticket.orderNumber}
+            {ticket.pendingSync && (
+              <span
+                className="ticket-offline"
+                title="Taken offline. It will be sent to the office when the internet is back."
+              >
+                <LuCloudOff aria-hidden="true" /> Not sent
+              </span>
+            )}
+            {!ticket.pendingSync && ticket.offlineRef && (
+              <span
+                className="ticket-offline is-sent"
+                title="Taken while the kitchen was offline. The customer's slip carries this number."
+              >
+                Slip {ticket.offlineRef}
+              </span>
+            )}
+          </div>
           <div className="ticket-sub">
             <TypeIcon className="ticket-type-icon" aria-hidden="true" />
             {TYPE_LABEL[ticket.type] ?? ticket.type}
@@ -215,7 +234,7 @@ export function Ticket({
           </button>
         )}
 
-        {ticket.status === 'PENDING' && (
+        {ticket.status === 'PENDING' && !ticket.pendingSync && (
           <button
             type="button"
             className="btn btn-danger"

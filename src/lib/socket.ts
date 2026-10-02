@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { API_URL } from './api';
+import { API_URL } from './config';
 import { getAccessToken } from './supabase';
 
 const REALTIME_URL = `${API_URL.replace(/\/api\/?$/, '')}/realtime`;

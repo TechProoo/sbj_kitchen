@@ -8,8 +8,18 @@ import {
   type ReactNode,
 } from 'react';
 import { api, ApiError } from '../lib/api';
-import { isSupabaseConfigured, supabase } from '../lib/supabase';
+import { readJson, removeKey, writeJson } from '../lib/storage';
+import {
+  hasStoredSession,
+  isSupabaseConfigured,
+  supabase,
+} from '../lib/supabase';
 import type { StaffUser } from '../lib/types';
+
+/// The last profile the API vouched for. Opening the board with no connection
+/// cannot ask the API who is signed in, so it trusts this, but only alongside a
+/// session that is still saved on the device.
+const PROFILE_KEY = 'sbj.kitchen.profile';
 
 interface AuthContextValue {
   user: StaffUser | null;
@@ -34,13 +44,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await api.me();
       if (!profile.role) {
         setError('This account is not registered as kitchen staff.');
+        removeKey(PROFILE_KEY);
         setUser(null);
         await supabase.auth.signOut();
         return;
       }
+      writeJson(PROFILE_KEY, profile);
       setUser(profile);
       setError(null);
     } catch (err) {
+      if (err instanceof ApiError && err.status === 0) {
+        const saved = readJson<StaffUser | null>(PROFILE_KEY, null);
+        if (saved && hasStoredSession()) {
+          setUser(saved);
+          setError(null);
+          return;
+        }
+      }
       setUser(null);
       if (err instanceof ApiError && err.status !== 401) setError(err.message);
     }
@@ -55,17 +75,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
 
     supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) await loadProfile();
+      // No session can also mean "expired and could not refresh because there
+      // is no internet", so a saved login is worth a try before the form.
+      if (data.session || hasStoredSession()) await loadProfile();
       if (active) setLoading(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        if (event === 'SIGNED_OUT' || !session) {
+        // Only an explicit sign-out ends the session here. A missing session
+        // on its own can just be an expired token that cannot refresh offline.
+        if (event === 'SIGNED_OUT') {
           setUser(null);
           return;
         }
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (
+          session &&
+          (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')
+        ) {
           void loadProfile();
         }
       },
@@ -96,6 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    removeKey(PROFILE_KEY);
     await supabase.auth.signOut();
     setUser(null);
   }, []);

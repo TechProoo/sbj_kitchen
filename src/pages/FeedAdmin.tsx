@@ -10,6 +10,7 @@ import {
   LuTriangleAlert,
   LuUtensils,
 } from 'react-icons/lu';
+import { AdminTabs } from '../components/AdminTabs';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
 import type { FeedKind, FeedPost } from '../lib/types';
@@ -181,6 +182,8 @@ export function FeedAdmin() {
           </div>
         </div>
       </header>
+
+      <AdminTabs />
 
       <div className="panel-body feed-admin">
         {/* ------------------------------------------------------ composer */}
