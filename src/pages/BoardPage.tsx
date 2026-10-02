@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  LuBookOpen,
   LuChartColumn,
   LuCloudOff,
   LuPlus,
@@ -237,6 +238,13 @@ export function BoardPage() {
           </button>
 
           {/* The panel is the owner's, so the way in only shows for them. */}
+          {user?.role === 'KITCHEN' && (
+            <Link to="/admin/menu" className="btn btn-ghost">
+              <LuBookOpen aria-hidden="true" />
+              Menu
+            </Link>
+          )}
+
           {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
             <Link to="/admin/panel" className="btn btn-ghost">
               <LuChartColumn aria-hidden="true" />

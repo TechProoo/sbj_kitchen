@@ -63,6 +63,9 @@ const message = (err: unknown, fallback: string) =>
 /// touch past tickets: those keep the price captured when they were placed.
 export function MenuAdmin() {
   const { user } = useAuth();
+  /// Cooks may add and edit dishes; removing one and making categories are
+  /// the managers' (the API enforces the same).
+  const manager = user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const [items, setItems] = useState<MenuEditorItem[] | null>(null);
   const [categories, setCategories] = useState<MenuCategoryRef[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -237,9 +240,9 @@ export function MenuAdmin() {
             <LuPlus aria-hidden="true" />
             Add dish
           </button>
-          <Link to="/admin/panel" className="btn btn-ghost">
+          <Link to={manager ? '/admin/panel' : '/'} className="btn btn-ghost">
             <LuArrowLeft aria-hidden="true" />
-            Panel
+            {manager ? 'Panel' : 'Board'}
           </Link>
           <div className="who">
             <b>{user?.fullName ?? user?.email}</b>
@@ -297,15 +300,17 @@ export function MenuAdmin() {
                       >
                         <LuPencil aria-hidden="true" />
                       </button>
-                      <button
-                        type="button"
-                        className="danger"
-                        aria-label={`Remove ${item.name}`}
-                        disabled={busyId === item.id}
-                        onClick={() => void remove(item)}
-                      >
-                        <LuTrash2 aria-hidden="true" />
-                      </button>
+                      {manager && (
+                        <button
+                          type="button"
+                          className="danger"
+                          aria-label={`Remove ${item.name}`}
+                          disabled={busyId === item.id}
+                          onClick={() => void remove(item)}
+                        >
+                          <LuTrash2 aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -394,13 +399,15 @@ export function MenuAdmin() {
                     ))}
                   </select>
                 </label>
-                <label>
-                  …or a new category
-                  <input
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                  />
-                </label>
+                {manager && (
+                  <label>
+                    …or a new category
+                    <input
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                    />
+                  </label>
+                )}
               </div>
 
               <div className="row">

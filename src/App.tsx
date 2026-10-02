@@ -10,6 +10,9 @@ import { MenuAdmin } from './pages/MenuAdmin';
 /// pass gets sent back to the board rather than an error page.
 const PANEL_ROLES = ['ADMIN', 'MANAGER'];
 
+/// Cooks can add and edit dishes too; removing them stays with the managers.
+const MENU_ROLES = [...PANEL_ROLES, 'KITCHEN'];
+
 function Gate() {
   const { user, loading } = useAuth();
 
@@ -49,7 +52,7 @@ function Gate() {
       <Route
         path="/admin/menu"
         element={
-          user.role && PANEL_ROLES.includes(user.role) ? (
+          user.role && MENU_ROLES.includes(user.role) ? (
             <MenuAdmin />
           ) : (
             <Navigate to="/" replace />
