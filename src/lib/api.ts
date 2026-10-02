@@ -5,6 +5,9 @@ import type {
   Board,
   CounterOrderInput,
   MenuCategory,
+  MenuCategoryRef,
+  MenuEditorItem,
+  MenuItemInput,
   KitchenStats,
   OrderItemStatus,
   OrderStatus,
@@ -144,6 +147,33 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ reason }),
     }),
+
+  /// Every item, switched-off ones included, for the menu editor.
+  menuItems: () =>
+    request<MenuEditorItem[]>('/menu/items?includeUnavailable=true&take=100'),
+
+  menuCategories: () => request<MenuCategoryRef[]>('/menu/categories'),
+
+  createCategory: (name: string) =>
+    request<MenuCategoryRef>('/menu/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  createMenuItem: (input: MenuItemInput) =>
+    request<MenuEditorItem>('/menu/items', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
+
+  updateMenuItem: (id: string, input: Partial<MenuItemInput>) =>
+    request<MenuEditorItem>(`/menu/items/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    }),
+
+  deleteMenuItem: (id: string) =>
+    request<unknown>(`/menu/items/${id}`, { method: 'DELETE' }),
 
   setItemAvailability: (menuItemId: string, isAvailable: boolean) =>
     request<unknown>(`/menu/items/${menuItemId}/availability`, {

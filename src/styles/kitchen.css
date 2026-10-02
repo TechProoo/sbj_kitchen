@@ -2273,3 +2273,36 @@ button, input, select {
   font-variant-numeric: tabular-nums;
   font-size: 0.75rem;
 }
+
+/* ------------------------------------------------------------ menu editor */
+
+.menu-admin-list { display: grid; gap: var(--s-2); }
+
+.menu-admin-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel-raised);
+}
+
+.menu-admin-row.is-off { opacity: 0.6; }
+.menu-admin-row small { display: block; color: var(--ink-muted); }
+
+.menu-form { display: grid; gap: var(--s-3); padding: var(--s-5); }
+.menu-form label { display: grid; gap: 4px; color: var(--ink-muted); font-size: 0.8125rem; }
+.menu-form input,
+.menu-form select,
+.menu-form textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+}
+.menu-form .row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+.menu-form .check { display: flex; align-items: center; gap: var(--s-2); }

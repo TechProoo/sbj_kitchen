@@ -216,6 +216,40 @@ export interface CounterOrderInput {
 
 /* --------------------------------------------------------------- the feed */
 
+/* ------------------------------------------------------------ menu editor */
+
+export interface MenuCategoryRef {
+  id: string;
+  name: string;
+}
+
+/// An item as the menu editor sees it: every field, switched-off ones included.
+export interface MenuEditorItem {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string | null;
+  price: string;
+  imageUrl: string | null;
+  prepMinutes: number;
+  spiceLevel: number;
+  isAvailable: boolean;
+  isFeatured: boolean;
+  category: { id: string; name: string; slug: string };
+}
+
+export interface MenuItemInput {
+  categoryId: string;
+  name: string;
+  description?: string;
+  price: number;
+  imageUrl?: string;
+  prepMinutes?: number;
+  spiceLevel?: number;
+  isAvailable?: boolean;
+  isFeatured?: boolean;
+}
+
 export type FeedKind = 'PROMO' | 'GIST';
 
 export interface FeedPost {

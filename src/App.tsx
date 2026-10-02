@@ -4,6 +4,7 @@ import { AdminPanel } from './pages/AdminPanel';
 import { FeedAdmin } from './pages/FeedAdmin';
 import { BoardPage } from './pages/BoardPage';
 import { LoginPage } from './pages/LoginPage';
+import { MenuAdmin } from './pages/MenuAdmin';
 
 /// Sales figures are for the owner and the managers; a cook signing in on the
 /// pass gets sent back to the board rather than an error page.
@@ -40,6 +41,16 @@ function Gate() {
         element={
           user.role && PANEL_ROLES.includes(user.role) ? (
             <FeedAdmin />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        }
+      />
+      <Route
+        path="/admin/menu"
+        element={
+          user.role && PANEL_ROLES.includes(user.role) ? (
+            <MenuAdmin />
           ) : (
             <Navigate to="/" replace />
           )

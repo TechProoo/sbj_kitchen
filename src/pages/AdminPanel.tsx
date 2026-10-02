@@ -12,6 +12,7 @@ import {
   LuRefreshCw,
   LuTriangleAlert,
   LuUsers,
+  LuUtensils,
 } from 'react-icons/lu';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
@@ -109,6 +110,11 @@ export function AdminPanel() {
         </div>
 
         <div className="topbar-right">
+          <Link to="/admin/menu" className="btn btn-ghost">
+            <LuUtensils aria-hidden="true" />
+            Menu
+          </Link>
+
           <Link to="/admin/feed" className="btn btn-ghost">
             <LuNewspaper aria-hidden="true" />
             The feed
