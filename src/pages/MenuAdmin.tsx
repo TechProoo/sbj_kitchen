@@ -169,7 +169,7 @@ export function MenuAdmin() {
         imageUrl = (await api.uploadMenuImage(body)).url;
       }
 
-      const input: MenuItemInput = {
+      const base = {
         categoryId,
         name: draft.name.trim(),
         description: draft.description.trim(),
@@ -177,12 +177,19 @@ export function MenuAdmin() {
         imageUrl,
         prepMinutes: Number(draft.prepMinutes) || 15,
         spiceLevel: Number(draft.spiceLevel) || 0,
-        isAvailable: draft.isAvailable,
-        isFeatured: draft.isFeatured,
       };
 
-      if (editing === 'new') await api.createMenuItem(input);
-      else if (editing) await api.updateMenuItem(editing.id, input);
+      if (editing === 'new') {
+        // The backend's CreateMenuItemDto does not accept isAvailable /
+        // isFeatured — new items default to available and not featured.
+        await api.createMenuItem(base);
+      } else if (editing) {
+        await api.updateMenuItem(editing.id, {
+          ...base,
+          isAvailable: draft.isAvailable,
+          isFeatured: draft.isFeatured,
+        });
+      }
 
       setEditing(null);
       await load();
