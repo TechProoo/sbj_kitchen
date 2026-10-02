@@ -97,7 +97,7 @@ export function Ticket({
                 className="ticket-offline"
                 title="Taken offline. It will be sent to the office when the internet is back."
               >
-                <LuCloudOff aria-hidden="true" /> Not sent
+                <LuCloudOff aria-label="Not sent yet" />
               </span>
             )}
             {!ticket.pendingSync && ticket.offlineRef && (

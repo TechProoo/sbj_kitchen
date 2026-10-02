@@ -396,7 +396,7 @@ export function NewOrderSheet({
 
             <p className="order-placed-label">
               {placed.pendingSync
-                ? 'Saved on this device, accepted'
+                ? 'On the board, accepted'
                 : 'On the board, accepted'}
               {placed.paymentStatus === 'PAID' ? ' and paid' : ' — not yet paid'}
             </p>
@@ -410,9 +410,8 @@ export function NewOrderSheet({
 
             {placed.pendingSync && (
               <p className="order-placed-offline">
-                No internet right now. It is on the board and the office gets it
-                the moment the connection returns. The slip number starts with
-                OFF; the office number is added after.
+                No internet. It is on the board and will reach the office when
+                the connection returns.
               </p>
             )}
 

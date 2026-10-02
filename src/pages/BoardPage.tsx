@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LuChartColumn,
   LuCloudOff,
-  LuCloudUpload,
   LuPlus,
   LuRefreshCw,
 } from 'react-icons/lu';
@@ -20,7 +19,6 @@ import { isOnline, useOnline } from '../lib/connectivity';
 import { formatMoney } from '../lib/format';
 import {
   advanceLocal,
-  drainOutbox,
   isLocalTicket,
   queueCancel,
   queueItem,
@@ -55,19 +53,6 @@ export function BoardPage() {
   const refused = outbox.ops.filter(
     (op) => op.kind === 'create' && op.failed,
   ).length;
-
-  /// "All caught up" stays up for a few seconds after a sync, then clears.
-  const [justSynced, setJustSynced] = useState<number | null>(null);
-  useEffect(() => {
-    if (!outbox.lastSync) return;
-    const sent = outbox.lastSync.orders;
-    const show = setTimeout(() => setJustSynced(sent), 0);
-    const hide = setTimeout(() => setJustSynced(null), 8000);
-    return () => {
-      clearTimeout(show);
-      clearTimeout(hide);
-    };
-  }, [outbox.lastSync]);
 
   const setBusy = useCallback((id: string, busy: boolean) => {
     setBusyIds((current) => {
@@ -270,49 +255,33 @@ export function BoardPage() {
         </div>
       </header>
 
-      {(!online || waiting > 0 || justSynced) && (
+      {/* Quiet on purpose: it appears only when something needs saying, sends
+          by itself, and asks for a tap only when the server refused an order. */}
+      {(!online || waiting > 0) && (
         <div
           className={`netbar${!online ? ' is-offline' : ''}${refused > 0 ? ' is-refused' : ''}`}
           role="status"
         >
           {!online ? (
             <LuCloudOff aria-hidden="true" />
-          ) : outbox.syncing ? (
-            <LuRefreshCw aria-hidden="true" className="spin" />
           ) : (
-            <LuCloudUpload aria-hidden="true" />
+            <LuRefreshCw
+              aria-hidden="true"
+              className={outbox.syncing ? 'spin' : ''}
+            />
           )}
 
           <p>
-            {!online &&
-              (waiting > 0
-                ? `Offline. ${waiting} ${waiting === 1 ? 'change is' : 'changes are'} saved on this device and will send by themselves when the internet is back.`
-                : 'Offline. You can keep taking and cooking orders. They are saved on this device and sent to the office when the internet is back.')}
-            {online &&
-              refused > 0 &&
-              `${refused} offline ${refused === 1 ? 'order was' : 'orders were'} refused by the server. Open the list to decide what to do.`}
-            {online &&
-              refused === 0 &&
-              waiting > 0 &&
-              (outbox.syncing
-                ? `Sending ${waiting} ${waiting === 1 ? 'change' : 'changes'} to the office…`
-                : `${waiting} ${waiting === 1 ? 'change is' : 'changes are'} waiting to be sent.`)}
-            {online &&
-              waiting === 0 &&
-              justSynced &&
-              `All caught up. ${justSynced} offline ${justSynced === 1 ? 'order' : 'orders'} sent to the office.`}
+            {refused > 0
+              ? `${refused} ${refused === 1 ? 'order needs' : 'orders need'} attention`
+              : !online
+                ? waiting > 0
+                  ? `Offline · ${waiting} saved, sending when back`
+                  : 'Offline · orders are saved and sent when back'
+                : `Sending ${waiting}…`}
           </p>
 
-          {online && waiting > 0 && !outbox.syncing && (
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => void drainOutbox()}
-            >
-              Send now
-            </button>
-          )}
-          {waiting > 0 && (
+          {(refused > 0 || waiting > 0) && (
             <button
               type="button"
               className="btn btn-ghost"

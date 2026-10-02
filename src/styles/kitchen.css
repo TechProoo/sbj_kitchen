@@ -2686,3 +2686,6 @@ button.rows-link.is-picked { color: var(--ink); font-weight: 700; }
   font-variant-numeric: tabular-nums;
 }
 .card-flush { padding-top: var(--s-4); }
+
+.netbar { padding: 6px var(--s-3); font-size: 0.8125rem; }
+.netbar .btn { padding: 4px 12px; }
