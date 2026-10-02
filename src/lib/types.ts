@@ -69,6 +69,13 @@ export interface Ticket {
     accuracyMeters: number | null;
   } | null;
   claimedBy: { id: string; fullName: string } | null;
+  /// Idempotency key minted by the screen that took a counter order.
+  clientRef?: string | null;
+  /// The OFF-A07 number printed on the slip while the screen was offline.
+  offlineRef?: string | null;
+  syncedAt?: string | null;
+  /// True for a ticket that exists only on this device so far.
+  pendingSync?: boolean;
 }
 
 export interface Board {
@@ -131,10 +138,22 @@ export interface AdminOverview {
   days: { day: string; orders: number; revenue: string }[];
   topItems: { name: string; quantity: number; revenue: string }[];
 
+  /// Orders the kitchen took offline and uploaded later.
+  offline: { orders: number; revenue: string };
+
+  /// Set client-side when the network was down and this is the last copy.
+  fromCache?: boolean;
+
   recent: {
     id: string;
     orderNumber: string;
     customerName: string;
+    customerPhone: string;
+    tableNumber: string | null;
+    channel: string;
+    offlineRef: string | null;
+    syncedAt: string | null;
+    items: { nameSnapshot: string; quantity: number }[];
     type: string;
     status: OrderStatus;
     paymentStatus: string;
@@ -212,6 +231,12 @@ export interface CounterOrderInput {
   paymentMethod?: 'CASH' | 'CARD' | 'TRANSFER' | 'ONLINE';
   paid?: boolean;
   notes?: string;
+  /// Lets the server recognise a retried upload and answer with the first
+  /// order instead of making a second.
+  clientRef?: string;
+  /// Only for an order taken with no connection.
+  offlineRef?: string;
+  placedAt?: string;
 }
 
 /* --------------------------------------------------------------- the feed */

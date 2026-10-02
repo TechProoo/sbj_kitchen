@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   LuArrowLeft,
@@ -15,6 +15,9 @@ import type {
   MenuEditorItem,
   MenuItemInput,
 } from '../lib/types';
+
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/avif';
+const MAX_BYTES = 6 * 1024 * 1024;
 
 interface Draft {
   categoryId: string;
@@ -67,6 +70,9 @@ export function MenuAdmin() {
   const [newCategory, setNewCategory] = useState('');
   const [saving, setSaving] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(
     () =>
@@ -86,7 +92,36 @@ export function MenuAdmin() {
     void load();
   }, [load]);
 
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
+
+  const resetFile = () => {
+    setFile(null);
+    setPreview(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  const choose = (chosen: File | null) => {
+    if (!chosen) return;
+    if (!ACCEPT.split(',').includes(chosen.type)) {
+      setError('Images only — JPEG, PNG, WebP or AVIF.');
+      return;
+    }
+    if (chosen.size > MAX_BYTES) {
+      setError('That image is larger than 6MB. Try a smaller one.');
+      return;
+    }
+    setError(null);
+    setFile(chosen);
+    setPreview(URL.createObjectURL(chosen));
+  };
+
   const openNew = () => {
+    resetFile();
     setDraft(blank(categories[0]?.id ?? ''));
     setNewCategory('');
     setError(null);
@@ -94,6 +129,7 @@ export function MenuAdmin() {
   };
 
   const openEdit = (item: MenuEditorItem) => {
+    resetFile();
     setDraft(fromItem(item));
     setNewCategory('');
     setError(null);
@@ -122,12 +158,19 @@ export function MenuAdmin() {
         return;
       }
 
+      let imageUrl = draft.imageUrl || undefined;
+      if (file) {
+        const body = new FormData();
+        body.append('image', file);
+        imageUrl = (await api.uploadMenuImage(body)).url;
+      }
+
       const input: MenuItemInput = {
         categoryId,
         name: draft.name.trim(),
         description: draft.description.trim(),
         price,
-        imageUrl: draft.imageUrl.trim() || undefined,
+        imageUrl,
         prepMinutes: Number(draft.prepMinutes) || 15,
         spiceLevel: Number(draft.spiceLevel) || 0,
         isAvailable: draft.isAvailable,
@@ -368,13 +411,26 @@ export function MenuAdmin() {
                     onChange={(e) => set('spiceLevel', e.target.value)}
                   />
                 </label>
-                <label>
-                  Image link
+                <div className="menu-image">
+                  <span>Photo</span>
+                  {(preview || draft.imageUrl) && (
+                    <img src={preview ?? draft.imageUrl} alt="" />
+                  )}
                   <input
-                    value={draft.imageUrl}
-                    onChange={(e) => set('imageUrl', e.target.value)}
+                    ref={fileRef}
+                    type="file"
+                    accept={ACCEPT}
+                    className="visually-hidden-input"
+                    onChange={(e) => choose(e.target.files?.[0] ?? null)}
                   />
-                </label>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    {preview || draft.imageUrl ? 'Change photo' : 'Upload photo'}
+                  </button>
+                </div>
               </div>
 
               <label className="check">

@@ -160,6 +160,9 @@ export const api = {
       body: JSON.stringify({ name }),
     }),
 
+  uploadMenuImage: (body: FormData) =>
+    upload<{ url: string }>('/menu/items/image', body),
+
   createMenuItem: (input: MenuItemInput) =>
     request<MenuEditorItem>('/menu/items', {
       method: 'POST',
