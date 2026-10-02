@@ -2711,23 +2711,41 @@ button.rows-link.is-picked { color: var(--ink); font-weight: 700; }
   30% { transform: translateY(-9px); }
 }
 
+/* A thin bar along the top edge: it shows that something is happening without
+   sitting on top of the page the way a floating pill did. */
 .activity {
   position: fixed;
-  left: 50%;
-  bottom: var(--s-5);
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
   z-index: 120;
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  padding: 10px 18px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-full);
-  background: var(--panel-high);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--brand) 20%, transparent);
   pointer-events: none;
+}
+
+.activity::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 35%;
+  background: var(--brand);
+  animation: activity-slide 1s ease-in-out infinite;
+}
+
+/* The words stay for screen readers. */
+.activity > * {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+@keyframes activity-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(290%); }
 }
 
 .panel-loading { display: flex; align-items: center; gap: var(--s-3); }
