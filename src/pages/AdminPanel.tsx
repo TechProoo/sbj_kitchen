@@ -109,6 +109,8 @@ export function AdminPanel() {
   /// report on screen is not the day being asked for.
   const loading = !error && (!data || data.day !== day);
   const sales = data?.sales;
+  /// An API that predates offline orders omits this; treat it as none.
+  const offline = data?.offline ?? { orders: 0, revenue: '0' };
   const isFuture = day >= today();
   const unpaid = data ? data.recent.filter(isUnpaid) : [];
   const unpaidValue = unpaid.reduce((sum, order) => sum + Number(order.total), 0);
@@ -287,7 +289,7 @@ export function AdminPanel() {
 
           {/* ------------------------------------------------- needs a look */}
 
-          {(unpaid.length > 0 || data.offline.orders > 0) && (
+          {(unpaid.length > 0 || offline.orders > 0) && (
             <section className="attention" aria-label="Needs attention">
               {unpaid.length > 0 && (
                 <button
@@ -308,7 +310,7 @@ export function AdminPanel() {
                 </button>
               )}
 
-              {data.offline.orders > 0 && (
+              {offline.orders > 0 && (
                 <button
                   type="button"
                   className="attention-item"
@@ -320,9 +322,9 @@ export function AdminPanel() {
                   <LuCloudUpload aria-hidden="true" />
                   <span>
                     <b>
-                      {data.offline.orders} taken offline
+                      {offline.orders} taken offline
                     </b>
-                    {formatMoney(data.offline.revenue)} sent up after the internet dropped
+                    {formatMoney(offline.revenue)} sent up after the internet dropped
                   </span>
                 </button>
               )}
