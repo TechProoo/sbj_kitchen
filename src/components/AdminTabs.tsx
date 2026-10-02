@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { ActivityLoader } from './BouncingDots';
 import {
   LuBookOpen,
   LuChartColumn,
@@ -11,6 +12,7 @@ import {
 /// right button in each header.
 export function AdminTabs() {
   return (
+    <>
     <nav className="admin-tabs" aria-label="Owner pages">
       <NavLink to="/admin/panel">
         <LuChartColumn aria-hidden="true" />
@@ -29,5 +31,7 @@ export function AdminTabs() {
         Kitchen board
       </NavLink>
     </nav>
+    <ActivityLoader />
+    </>
   );
 }

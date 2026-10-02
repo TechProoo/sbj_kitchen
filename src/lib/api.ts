@@ -1,3 +1,4 @@
+import { tracked } from './activity';
 import { API_URL } from './config';
 import { setReachable } from './connectivity';
 import { readJson, writeJson } from './storage';
@@ -35,10 +36,19 @@ export class ApiError extends Error {
 
 /// Every kitchen call is authenticated, so the token is attached here rather
 /// than at each call site. Supabase refreshes it in the background.
-async function request<T>(
+function request<T>(
   path: string,
   init?: RequestInit,
   retried = false,
+  quiet = false,
+): Promise<T> {
+  return tracked(() => send<T>(path, init, retried), quiet);
+}
+
+async function send<T>(
+  path: string,
+  init: RequestInit | undefined,
+  retried: boolean,
 ): Promise<T> {
   const token = await getAccessToken();
 
@@ -109,7 +119,11 @@ async function cached<T>(key: string, load: () => Promise<T>): Promise<T> {
  * the JSON header through would make the server parse the body as JSON and
  * find nothing.
  */
-async function upload<T>(path: string, body: FormData): Promise<T> {
+function upload<T>(path: string, body: FormData): Promise<T> {
+  return tracked(() => sendUpload<T>(path, body));
+}
+
+async function sendUpload<T>(path: string, body: FormData): Promise<T> {
   const token = await getAccessToken();
 
   let response: Response;
@@ -163,11 +177,14 @@ export const api = {
 
   /// The owner's panel. `day` is YYYY-MM-DD; omitted, the API reports today.
   /// Offline, the last copy of that day is shown, marked `fromCache`.
-  overview: async (day?: string): Promise<AdminOverview> => {
+  overview: async (day?: string, quiet = false): Promise<AdminOverview> => {
     const key = `sbj.kitchen.overview.${day ?? 'today'}`;
     try {
       const report = await request<AdminOverview>(
         `/admin/overview${day ? `?day=${day}` : ''}`,
+        undefined,
+        false,
+        quiet,
       );
       writeJson(key, report);
       return report;

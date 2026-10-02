@@ -13,6 +13,7 @@ import {
   LuUsers,
 } from 'react-icons/lu';
 import { AdminTabs } from '../components/AdminTabs';
+import { BouncingDots } from '../components/BouncingDots';
 import { OrderLedger } from '../components/OrderLedger';
 import { useAuth } from '../context/AuthContext';
 import { api, ApiError } from '../lib/api';
@@ -80,9 +81,9 @@ export function AdminPanel() {
   /// Nothing is set synchronously here: the report only lands once the request
   /// resolves, so switching day never blanks the screen mid-render.
   const refresh = useCallback(
-    (target: string) =>
+    (target: string, quiet = false) =>
       api
-        .overview(target)
+        .overview(target, quiet)
         .then((overview) => {
           setData(overview);
           setError(null);
@@ -100,7 +101,7 @@ export function AdminPanel() {
   }, [day, refresh]);
 
   useEffect(() => {
-    const timer = setInterval(() => void refresh(day), REFRESH_MS);
+    const timer = setInterval(() => void refresh(day, true), REFRESH_MS);
     return () => clearInterval(timer);
   }, [day, refresh]);
 
@@ -223,7 +224,11 @@ export function AdminPanel() {
         </div>
       )}
 
-      {loading && <p className="panel-loading">Adding up the day…</p>}
+      {loading && (
+        <p className="panel-loading">
+          <BouncingDots label="Adding up the day" /> Adding up the day…
+        </p>
+      )}
 
       {data && sales && data.day === day && (
         <div className="panel-body">
