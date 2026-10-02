@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   LuBanknote,
   LuChevronLeft,
@@ -7,7 +8,6 @@ import {
   LuClock,
   LuCloudOff,
   LuCloudUpload,
-  LuReceipt,
   LuRefreshCw,
   LuTriangleAlert,
   LuUsers,
@@ -49,6 +49,14 @@ function longDay(day: string): string {
   });
 }
 
+type View = 'overview' | 'orders' | 'details';
+
+const VIEWS: { id: View; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'orders', label: 'Orders' },
+  { id: 'details', label: 'Menu & team' },
+];
+
 /// Bars are drawn as plain divs against the tallest value in the set — a
 /// chart library would be four hundred kilobytes for eight rectangles.
 function peak(values: number[]): number {
@@ -61,6 +69,12 @@ export function AdminPanel() {
   const [data, setData] = useState<AdminOverview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<LedgerFilter>('all');
+  const [params, setParams] = useSearchParams();
+  const view: View = VIEWS.some((entry) => entry.id === params.get('view'))
+    ? (params.get('view') as View)
+    : 'overview';
+  const setView = (next: View) =>
+    setParams(next === 'overview' ? {} : { view: next }, { replace: true });
   const online = useOnline();
 
   /// Nothing is set synchronously here: the report only lands once the request
@@ -213,44 +227,6 @@ export function AdminPanel() {
 
       {data && sales && data.day === day && (
         <div className="panel-body">
-          {/* ------------------------------------------------- needs a look */}
-
-          {(unpaid.length > 0 || data.offline.orders > 0) && (
-            <section className="attention" aria-label="Needs attention">
-              {unpaid.length > 0 && (
-                <button
-                  type="button"
-                  className="attention-item is-warn"
-                  onClick={() => setFilter('unpaid')}
-                >
-                  <LuBanknote aria-hidden="true" />
-                  <span>
-                    <b>
-                      {unpaid.length} unpaid {unpaid.length === 1 ? 'order' : 'orders'}
-                    </b>
-                    {formatMoney(unpaidValue)} not yet collected
-                  </span>
-                </button>
-              )}
-
-              {data.offline.orders > 0 && (
-                <button
-                  type="button"
-                  className="attention-item"
-                  onClick={() => setFilter('offline')}
-                >
-                  <LuCloudUpload aria-hidden="true" />
-                  <span>
-                    <b>
-                      {data.offline.orders} taken offline
-                    </b>
-                    {formatMoney(data.offline.revenue)} sent up after the internet dropped
-                  </span>
-                </button>
-              )}
-            </section>
-          )}
-
           {/* ------------------------------------------------- headline row */}
 
           <section className="kpi-row">
@@ -304,7 +280,70 @@ export function AdminPanel() {
             </div>
           </section>
 
-          <div className="panel-grid">
+          {/* ------------------------------------------------- needs a look */}
+
+          {(unpaid.length > 0 || data.offline.orders > 0) && (
+            <section className="attention" aria-label="Needs attention">
+              {unpaid.length > 0 && (
+                <button
+                  type="button"
+                  className="attention-item is-warn"
+                  onClick={() => {
+                    setFilter('unpaid');
+                    setView('orders');
+                  }}
+                >
+                  <LuBanknote aria-hidden="true" />
+                  <span>
+                    <b>
+                      {unpaid.length} unpaid {unpaid.length === 1 ? 'order' : 'orders'}
+                    </b>
+                    {formatMoney(unpaidValue)} not yet collected
+                  </span>
+                </button>
+              )}
+
+              {data.offline.orders > 0 && (
+                <button
+                  type="button"
+                  className="attention-item"
+                  onClick={() => {
+                    setFilter('offline');
+                    setView('orders');
+                  }}
+                >
+                  <LuCloudUpload aria-hidden="true" />
+                  <span>
+                    <b>
+                      {data.offline.orders} taken offline
+                    </b>
+                    {formatMoney(data.offline.revenue)} sent up after the internet dropped
+                  </span>
+                </button>
+              )}
+            </section>
+          )}
+
+          {/* ---------------------------------------------------- the views */}
+
+          <div className="view-tabs" role="tablist" aria-label="Sales sections">
+            {VIEWS.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                aria-selected={view === entry.id}
+                className={view === entry.id ? 'is-on' : ''}
+                onClick={() => setView(entry.id)}
+              >
+                {entry.label}
+                {entry.id === 'orders' && <i>{data.recent.length}</i>}
+              </button>
+            ))}
+          </div>
+
+          {view === 'overview' && (
+            <div className="panel-grid">
             {/* ------------------------------------------------ hourly sales */}
 
             <section className="card card-wide">
@@ -405,6 +444,27 @@ export function AdminPanel() {
               )}
             </section>
 
+            </div>
+          )}
+
+          {view === 'orders' && (
+            <div className="panel-grid">
+            {/* ------------------------------------------------ recent orders */}
+
+            <section className="card card-wide card-flush">
+              <OrderLedger
+                day={day}
+                orders={data.recent}
+                filter={filter}
+                onFilter={setFilter}
+                onChanged={() => void refresh(day)}
+              />
+            </section>
+            </div>
+          )}
+
+          {view === 'details' && (
+            <div className="panel-grid">
             {/* -------------------------------------------------- breakdowns */}
 
             <section className="card">
@@ -482,22 +542,8 @@ export function AdminPanel() {
               </ul>
             </section>
 
-            {/* ------------------------------------------------ recent orders */}
-
-            <section className="card card-wide">
-              <h2>
-                <LuReceipt aria-hidden="true" /> Orders on this day
-              </h2>
-
-              <OrderLedger
-                day={day}
-                orders={data.recent}
-                filter={filter}
-                onFilter={setFilter}
-                onChanged={() => void refresh(day)}
-              />
-            </section>
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>

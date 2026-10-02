@@ -2646,3 +2646,43 @@ button.rows-link.is-picked { color: var(--ink); font-weight: 700; }
   .admin-tabs { padding-inline: var(--s-4); }
   .detail-grid { grid-template-columns: 1fr; }
 }
+
+/* ------------------------------------------------ owner panel: sections */
+
+.view-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  max-width: 100%;
+  overflow-x: auto;
+}
+.view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.view-tabs button:hover { color: var(--ink); }
+.view-tabs button.is-on { background: var(--panel-high); color: var(--ink); }
+.view-tabs i {
+  font-style: normal;
+  font-size: 0.6875rem;
+  padding: 1px 7px;
+  border-radius: var(--r-full);
+  background: var(--line-strong);
+  font-variant-numeric: tabular-nums;
+}
+.card-flush { padding-top: var(--s-4); }
