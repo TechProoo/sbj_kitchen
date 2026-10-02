@@ -14,7 +14,6 @@ import { formatMoney } from '../lib/format';
 import type {
   MenuCategoryRef,
   MenuEditorItem,
-  MenuItemInput,
 } from '../lib/types';
 
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/avif';
