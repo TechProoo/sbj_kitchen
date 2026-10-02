@@ -2434,6 +2434,9 @@ button, input, select {
 /* ============================================== owner panel: easier to use */
 
 .admin-tabs {
+  /* .panel is a scrolling flex column; an overflow-x container may shrink to
+     nothing in it, which clipped the tabs to a sliver. */
+  flex-shrink: 0;
   display: flex;
   gap: var(--s-2);
   padding: var(--s-2) var(--s-5) 0;
